@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -13,7 +14,8 @@ namespace ChnageAppConfigLab
         static void Main(string[] args)
         {
             //   ChangeAppSetting();
-            CreateDomain();
+            //  CreateDomain();
+            UseExeConfigurationFileMap();
             Console.ReadLine();
         }
 
@@ -24,6 +26,49 @@ namespace ChnageAppConfigLab
             Console.WriteLine("ChangeAppSetting:" + ConfigurationManager.AppSettings["Kim"]);
         }
 
+        //http://dotnet-posts.blogspot.tw/2013/12/switching-between-configuration-config.html
+        private static void UseExeConfigurationFileMap()
+        {
+            Console.WriteLine("UseExeConfigurationFileMap:" + ConfigurationManager.AppSettings["Kim"]);
+            System.Configuration.Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+
+            ExeConfigurationFileMap map = new ExeConfigurationFileMap();
+            map.ExeConfigFilename = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "App.QAS.config");
+            Configuration configStage = ConfigurationManager.OpenMappedExeConfiguration(map, ConfigurationUserLevel.None);
+
+            config.AppSettings.Settings.Clear();
+            //replace appsettings
+            foreach (KeyValueConfigurationElement setting in configStage.AppSettings.Settings)
+            {
+                config.AppSettings.Settings.Add(setting);
+            }
+
+            config.ConnectionStrings.ConnectionStrings.Clear();
+            //replace connectionString
+            foreach (ConnectionStringSettings setting in configStage.ConnectionStrings.ConnectionStrings)
+            {
+                config.ConnectionStrings.ConnectionStrings.Add(setting);
+            }
+            config.Save();
+            ConfigurationManager.RefreshSection("connectionStrings");
+            ConfigurationManager.RefreshSection("appSettings");
+            Console.WriteLine("UseExeConfigurationFileMap:" + ConfigurationManager.AppSettings["Kim"]);
+            Console.WriteLine("UseExeConfigurationFileMap:" + ConfigurationManager.ConnectionStrings["Kim"].ConnectionString);
+
+        }
+
+        private KeyValueConfigurationCollection GetAppSettingsFromSelectedConfig(string path)
+        {
+            var fileMap = new ExeConfigurationFileMap { ExeConfigFilename = path };
+            Configuration newConfiguration = ConfigurationManager.OpenMappedExeConfiguration(fileMap, ConfigurationUserLevel.None);
+
+            if ((newConfiguration.AppSettings == null) || (newConfiguration.AppSettings.Settings == null))
+                return null;
+
+            return newConfiguration.AppSettings.Settings; ;
+        }
+
+        //http://stackoverflow.com/questions/658498/how-to-load-an-assembly-to-appdomain-with-all-references-recursively
         private static void CreateDomain()
         {
             string exeAssembly = Assembly.GetEntryAssembly().FullName;
